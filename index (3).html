@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Présenter — Connexion & Diaporama</title>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; overflow: hidden; }
+    body { font-family: 'DM Sans', sans-serif; }
+    @media (max-width: 600px) { .login-left { display: none !important; } }
+    .ed-field { margin-bottom: 16px; }
+    .ed-label { display:block; font-size:12px; font-weight:600; letter-spacing:0.04em; color:#0F0F14; margin-bottom:6px; }
+    .ed-input, .ed-textarea, .ed-select {
+      width:100%; padding:9px 12px; font-family:'DM Sans',sans-serif; font-size:14px;
+      color:#0F0F14; background:#F2F1EE; border:1.5px solid #E0DFD9; border-radius:7px; outline:none;
+    }
+    .ed-input:focus, .ed-textarea:focus, .ed-select:focus { border-color:#E8632A; }
+    .ed-textarea { resize:vertical; min-height:64px; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    /* ═══════════════ COMPTES ═══════════════
+       Modifiez librement les e-mails et mots de passe ci-dessous.
+       Le compte avec admin:true peut éditer les slides. */
+    const ACCOUNTS = [
+      { email: "joris@lemesle.com",          password: "01/10/2001" },
+      { email: "clara@bigot.com",            password: "19/09/2001" },
+      { email: "hugo@le.gal.com",            password: "31/08/2001" },
+      { email: "pierre.marius@lecrest.com",  password: "13/09/2001" },
+      { email: "utilisateur5@exemple.com",   password: "motdepasse5" },
+      { email: "victor@tourrette.com",       password: "Vicadt", admin: true },
+    ];
+
+    const C = {
+      dark: "#0F0F14", light: "#F8F7F4", orange: "#E8632A",
+      white: "#FFFFFF", muted: "#8A8A95", inputBg: "#F2F1EE", inputBorder: "#E0DFD9",
+    };
+
+    const DARK   = { bg: "#0F0F14", fg: "#F8F7F4", accent: "#E8632A" };
+    const LIGHT  = { bg: "#F8F7F4", fg: "#0F0F14", accent: "#E8632A" };
+    const ORANGE = { bg: "#E8632A", fg: "#F8F7F4", accent: "#0F0F14" };
+
+    const DEFAULT_SLIDES = [
+      { ...DARK, layout: "hero", label: "Introduction", title: "Innovation\n& Vision", sub: "Façonner le futur, ensemble." },
+      { ...LIGHT, layout: "list", label: "Mission", title: "Ce qui nous anime",
+        items: ["Innover avec intention et clarté", "Construire des produits durables", "Placer les personnes au centre"] },
+      { ...ORANGE, layout: "quote", quote: "Le meilleur moyen de prédire l'avenir, c'est de le créer.", author: "Peter Drucker" },
+      { ...DARK, layout: "stats", label: "Résultats 2025",
+        stats: [{ v: "94%", l: "Satisfaction" }, { v: "3×", l: "Croissance" }, { v: "120+", l: "Projets livrés" }] },
+      { ...LIGHT, layout: "list", label: "Approche", title: "Notre méthode",
+        items: ["Écouter avant de concevoir", "Itérer vite et souvent", "Mesurer chaque décision"] },
+      { ...DARK, layout: "hero", label: "Chapitre 01", title: "Le contexte", sub: "Où en sommes-nous aujourd'hui." },
+      { ...LIGHT, layout: "list", label: "Marché", title: "Les tendances clés",
+        items: ["Une demande en forte hausse", "Des usages qui se digitalisent", "Une exigence de durabilité"] },
+      { ...DARK, layout: "stats", label: "Le marché",
+        stats: [{ v: "€2,4 Md", l: "Volume total" }, { v: "+18%", l: "Croissance / an" }, { v: "40 M", l: "Utilisateurs" }] },
+      { ...ORANGE, layout: "quote", quote: "La simplicité est la sophistication suprême.", author: "Léonard de Vinci" },
+      { ...DARK, layout: "hero", label: "Chapitre 02", title: "La solution", sub: "Notre proposition de valeur." },
+      { ...LIGHT, layout: "list", label: "Produit", title: "Fonctionnalités phares",
+        items: ["Une interface claire et rapide", "Des intégrations sans friction", "Un accompagnement humain"] },
+      { ...LIGHT, layout: "list", label: "Avantages", title: "Pourquoi nous choisir",
+        items: ["Un gain de temps mesurable", "Un coût maîtrisé", "Une équipe à vos côtés"] },
+      { ...ORANGE, layout: "quote", quote: "L'imagination est plus importante que le savoir.", author: "Albert Einstein" },
+      { ...DARK, layout: "stats", label: "Impact",
+        stats: [{ v: "-30%", l: "Temps perdu" }, { v: "2×", l: "Productivité" }, { v: "98%", l: "Fidélisation" }] },
+      { ...DARK, layout: "hero", label: "Chapitre 03", title: "La feuille\nde route", sub: "Les prochaines étapes." },
+      { ...LIGHT, layout: "list", label: "Roadmap", title: "2026 en bref",
+        items: ["T1 — Nouvelle plateforme", "T2 — Ouverture internationale", "T3 — Application mobile"] },
+      { ...LIGHT, layout: "list", label: "Équipe", title: "Qui sommes-nous",
+        items: ["Une équipe pluridisciplinaire", "Dix ans d'expérience cumulée", "Une culture du résultat"] },
+      { ...ORANGE, layout: "quote", quote: "Fais de ta vie un rêve, et d'un rêve, une réalité.", author: "Antoine de Saint-Exupéry" },
+      { ...DARK, layout: "stats", label: "Objectifs 2026",
+        stats: [{ v: "5×", l: "Utilisateurs" }, { v: "€10 M", l: "Chiffre d'affaires" }, { v: "3", l: "Nouveaux pays" }] },
+      { ...LIGHT, layout: "end", title: "Merci", sub: "Des questions ?", email: "contact@exemple.com" },
+    ];
+
+    /* ═══════════════ Stockage local (sans serveur) ═══════════════ */
+    const STORE_KEY = "presenter_slides_v1";
+    function loadSlides() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr) && arr.length) return arr; }
+      } catch (e) {}
+      return DEFAULT_SLIDES;
+    }
+    function saveSlides(slides) {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(slides)); return true; }
+      catch (e) { return false; }
+    }
+
+    // Convertit une couleur hex (#RRGGBB) en rgba avec une opacité donnée (pour le voile)
+    function hexToRgba(hex, a) {
+      const h = (hex || "#000000").replace("#", "");
+      const r = parseInt(h.substring(0, 2), 16);
+      const g = parseInt(h.substring(2, 4), 16);
+      const b = parseInt(h.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    /* ═══════════════ Connexion ═══════════════ */
+    function LoginPage({ onLogin }) {
+      const [email, setEmail]       = useState("");
+      const [password, setPassword] = useState("");
+      const [error, setError]       = useState("");
+      const [loading, setLoading]   = useState(false);
+      const [focused, setFocused]   = useState(null);
+
+      const submit = (e) => {
+        e.preventDefault();
+        if (!email.trim()) { setError("L'adresse e-mail est requise."); return; }
+        if (!password)     { setError("Le mot de passe est requis.");   return; }
+        const acc = ACCOUNTS.find(a =>
+          a.email.toLowerCase() === email.trim().toLowerCase() && a.password === password);
+        if (!acc) { setError("E-mail ou mot de passe incorrect."); return; }
+        setError(""); setLoading(true);
+        setTimeout(() => { setLoading(false); onLogin(acc); }, 700);
+      };
+
+      const inp = (field) => ({
+        width: "100%", padding: "12px 16px", fontFamily: "'DM Sans', sans-serif", fontSize: 15,
+        color: C.dark, background: C.inputBg, borderRadius: 8, outline: "none",
+        border: `1.5px solid ${focused === field ? C.orange : C.inputBorder}`, transition: "border-color 0.2s",
+      });
+
+      return (
+        <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+          <div className="login-left" style={{
+            flex: "0 0 42%", background: C.dark, position: "relative", overflow: "hidden",
+            display: "flex", flexDirection: "column", justifyContent: "space-between", padding: "40px 48px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", zIndex: 2 }}>
+              <svg width="9" height="9" viewBox="0 0 9 9"><circle cx="4.5" cy="4.5" r="4.5" fill={C.orange}/></svg>
+              <span style={{ color: C.light, fontSize: 12, fontWeight: 600, letterSpacing: "0.14em", opacity: 0.85 }}>PRÉSENTER</span>
+            </div>
+            <div style={{ position: "absolute", bottom: -28, left: -14, right: -14, pointerEvents: "none", zIndex: 1 }}>
+              <div style={{
+                fontFamily: "'DM Serif Display', serif", fontStyle: "italic",
+                fontSize: "clamp(90px, 13vw, 152px)", lineHeight: 0.88, color: "transparent",
+                WebkitTextStroke: "1px rgba(248,247,244,0.09)", userSelect: "none", whiteSpace: "nowrap", letterSpacing: "-0.02em",
+              }}>Présenter</div>
+            </div>
+            <p style={{ position: "relative", zIndex: 2, color: C.muted, fontSize: 14, lineHeight: 1.7, fontWeight: 300 }}>
+              Vos idées méritent<br/>une scène à la hauteur.
+            </p>
+          </div>
+
+          <div style={{ flex: 1, background: C.white, display: "flex", alignItems: "center", justifyContent: "center", padding: "48px" }}>
+            <div style={{ width: "100%", maxWidth: 360 }}>
+              <h1 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, color: C.dark, marginBottom: 8, lineHeight: 1.05 }}>Connexion</h1>
+              <p style={{ color: C.muted, fontSize: 15, marginBottom: 36, fontWeight: 300 }}>Accédez à votre présentation.</p>
+              <form onSubmit={submit}>
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: C.dark, marginBottom: 6 }}>Adresse e-mail</label>
+                  <input type="email" value={email} placeholder="vous@exemple.com"
+                    onChange={e => { setEmail(e.target.value); setError(""); }}
+                    onFocus={() => setFocused("email")} onBlur={() => setFocused(null)} style={inp("email")} autoComplete="email" />
+                </div>
+                <div style={{ marginBottom: 28 }}>
+                  <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: C.dark, marginBottom: 6 }}>Mot de passe</label>
+                  <input type="password" value={password} placeholder="••••••••"
+                    onChange={e => { setPassword(e.target.value); setError(""); }}
+                    onFocus={() => setFocused("password")} onBlur={() => setFocused(null)} style={inp("password")} autoComplete="current-password" />
+                </div>
+                {error && (
+                  <p style={{ color: "#C03030", fontSize: 13, marginBottom: 16, padding: "10px 14px",
+                    background: "#FDF0F0", borderRadius: 6, border: "1px solid #F5CCCC" }}>{error}</p>
+                )}
+                <button type="submit" disabled={loading} style={{
+                  width: "100%", padding: "14px", background: loading ? C.muted : C.dark, color: C.white,
+                  border: "none", borderRadius: 8, fontSize: 15, fontWeight: 500, cursor: loading ? "wait" : "pointer",
+                  fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.02em", transition: "background 0.2s, transform 0.1s",
+                }}
+                  onMouseDown={e => { if (!loading) e.currentTarget.style.transform = "scale(0.99)"; }}
+                  onMouseUp={e => { e.currentTarget.style.transform = "scale(1)"; }}>
+                  {loading ? "Connexion…" : "Se connecter →"}
+                </button>
+              </form>
+              <p style={{ color: "#C0C0C0", fontSize: 12, marginTop: 24, textAlign: "center", lineHeight: 1.5 }}>
+                Comptes définis dans le fichier.<br/>Compte éditeur : victor@tourrette.com
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════ Mises en page des slides ═══════════════ */
+    function SlideHero({ s }) {
+      return (
+        <div style={{ textAlign: "center", maxWidth: 680 }}>
+          {s.label && <p style={{ fontSize: 11, letterSpacing: "0.18em", color: s.accent, fontWeight: 600, marginBottom: 28, textTransform: "uppercase" }}>{s.label}</p>}
+          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "clamp(58px, 9vw, 102px)", lineHeight: 0.95, color: s.fg, whiteSpace: "pre-line", marginBottom: 28, letterSpacing: "-0.02em" }}>{s.title || ""}</h2>
+          {s.sub && <p style={{ fontSize: 20, color: s.fg, opacity: 0.5, fontWeight: 300 }}>{s.sub}</p>}
+        </div>
+      );
+    }
+    function SlideList({ s }) {
+      const items = s.items || [];
+      return (
+        <div style={{ maxWidth: 620 }}>
+          {s.label && <p style={{ fontSize: 11, letterSpacing: "0.18em", color: s.accent, fontWeight: 600, marginBottom: 20, textTransform: "uppercase" }}>{s.label}</p>}
+          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "clamp(34px, 5vw, 52px)", color: s.fg, marginBottom: 40, lineHeight: 1.1 }}>{s.title || ""}</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {items.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 18 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.accent, flexShrink: 0, marginTop: 4 }} />
+                <p style={{ fontSize: 22, color: s.fg, fontWeight: 300, lineHeight: 1.45, opacity: 0.88 }}>{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    function SlideQuote({ s }) {
+      return (
+        <div style={{ textAlign: "center", maxWidth: 580 }}>
+          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 88, lineHeight: 0.6, color: s.accent, marginBottom: 22, opacity: 0.35 }}>"</div>
+          <blockquote style={{ fontFamily: "'DM Serif Display', serif", fontStyle: "italic", fontSize: "clamp(22px, 3.5vw, 36px)", lineHeight: 1.35, color: s.fg, marginBottom: 28 }}>{s.quote || ""}</blockquote>
+          {s.author && <p style={{ color: s.fg, opacity: 0.6, fontWeight: 500, fontSize: 15, letterSpacing: "0.06em" }}>— {s.author}</p>}
+        </div>
+      );
+    }
+    function SlideStats({ s }) {
+      const stats = s.stats || [];
+      return (
+        <div style={{ textAlign: "center" }}>
+          {s.label && <p style={{ fontSize: 11, letterSpacing: "0.18em", color: s.accent, fontWeight: 600, marginBottom: 52, textTransform: "uppercase" }}>{s.label}</p>}
+          <div style={{ display: "flex", gap: "clamp(48px, 8vw, 100px)", justifyContent: "center", flexWrap: "wrap" }}>
+            {stats.map((st, i) => (
+              <div key={i}>
+                <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: "clamp(50px, 8vw, 82px)", color: s.accent, lineHeight: 1, marginBottom: 10 }}>{st.v}</div>
+                <div style={{ color: s.fg, opacity: 0.45, fontSize: 13, letterSpacing: "0.08em" }}>{st.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    function SlideImage({ s }) {
+      return (
+        <div style={{ textAlign: "center", width: "100%", maxWidth: 1000 }}>
+          {s.title && <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: "clamp(28px, 4.5vw, 46px)", color: s.fg, marginBottom: 24, lineHeight: 1.1 }}>{s.title}</h2>}
+          {s.image
+            ? <img src={s.image} alt={s.caption || "photo"} style={{ maxWidth: "82vw", maxHeight: "62vh", objectFit: "contain", borderRadius: 10, boxShadow: "0 12px 40px rgba(0,0,0,0.25)" }} />
+            : <div style={{ width: "min(70vw, 560px)", height: "min(40vh, 320px)", borderRadius: 10, border: `2px dashed ${s.fg}33`, display: "flex", alignItems: "center", justifyContent: "center", color: s.fg, opacity: 0.4, fontSize: 14 }}>Ajoutez une photo en mode édition</div>}
+          {s.caption && <p style={{ fontSize: 15, color: s.fg, opacity: 0.55, marginTop: 20, fontWeight: 300 }}>{s.caption}</p>}
+        </div>
+      );
+    }
+    function SlideEnd({ s }) {
+      return (
+        <div style={{ textAlign: "center" }}>
+          <h2 style={{ fontFamily: "'DM Serif Display', serif", fontStyle: "italic", fontSize: "clamp(78px, 14vw, 132px)", color: s.fg, lineHeight: 0.92, marginBottom: 18, letterSpacing: "-0.02em" }}>{s.title || ""}</h2>
+          {s.sub && <p style={{ fontSize: 20, color: s.fg, opacity: 0.5, fontWeight: 300, marginBottom: 20 }}>{s.sub}</p>}
+          {s.email && <span style={{ color: s.accent, fontSize: 15, fontWeight: 500, borderBottom: `1.5px solid ${s.accent}`, paddingBottom: 2 }}>{s.email}</span>}
+        </div>
+      );
+    }
+    const LAYOUTS = { hero: SlideHero, list: SlideList, quote: SlideQuote, stats: SlideStats, image: SlideImage, end: SlideEnd };
+    const LAYOUT_OPTIONS = [
+      { v: "hero", l: "Titre" }, { v: "list", l: "Liste" }, { v: "quote", l: "Citation" },
+      { v: "stats", l: "Chiffres" }, { v: "image", l: "Photo" }, { v: "end", l: "Fin" },
+    ];
+
+    /* ═══════════════ Panneau d'édition (admin) ═══════════════ */
+    const Field = ({ label, children }) => (
+      <div className="ed-field"><label className="ed-label">{label}</label>{children}</div>
+    );
+
+    function Editor({ slide, onUpdate, onAdd, onDelete, onReset, onClose, index, total }) {
+
+      const themeName = slide.bg === DARK.bg ? "dark" : slide.bg === ORANGE.bg ? "orange" : "light";
+      const setTheme = (name) => {
+        const t = name === "dark" ? DARK : name === "orange" ? ORANGE : LIGHT;
+        onUpdate({ ...t });
+      };
+
+      const itemsText = (slide.items || []).join("\n");
+      const statsText = (slide.stats || []).map(s => `${s.v} | ${s.l}`).join("\n");
+
+      const onPhoto = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => onUpdate({ image: reader.result });
+        reader.readAsDataURL(file);
+      };
+
+      return (
+        <div style={{
+          position: "fixed", top: 0, right: 0, bottom: 0, width: 380, maxWidth: "92vw",
+          background: "#FFFFFF", borderLeft: "1px solid #E0DFD9", zIndex: 50,
+          display: "flex", flexDirection: "column", boxShadow: "-8px 0 32px rgba(0,0,0,0.18)",
+        }}>
+          <div style={{ padding: "18px 22px", borderBottom: "1px solid #ECEAE3", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 20, color: C.dark }}>Édition</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Slide {index + 1} sur {total}</div>
+            </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, color: C.muted, cursor: "pointer", lineHeight: 1 }}>×</button>
+          </div>
+
+          <div style={{ padding: "20px 22px", overflowY: "auto", flex: 1 }}>
+            <Field label="Type de slide">
+              <select className="ed-select" value={slide.layout} onChange={e => onUpdate({ layout: e.target.value })}>
+                {LAYOUT_OPTIONS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              </select>
+            </Field>
+
+            <Field label="Thème (fond)">
+              <select className="ed-select" value={themeName} onChange={e => setTheme(e.target.value)}>
+                <option value="dark">Sombre</option>
+                <option value="light">Clair</option>
+                <option value="orange">Orange</option>
+              </select>
+            </Field>
+
+            {(slide.layout === "hero" || slide.layout === "list" || slide.layout === "stats") && (
+              <Field label="Petit titre (au-dessus)">
+                <input className="ed-input" value={slide.label || ""} onChange={e => onUpdate({ label: e.target.value })} placeholder="Ex : Mission" />
+              </Field>
+            )}
+
+            {(slide.layout === "hero" || slide.layout === "list" || slide.layout === "image" || slide.layout === "end") && (
+              <Field label="Titre">
+                <textarea className="ed-textarea" value={slide.title || ""} onChange={e => onUpdate({ title: e.target.value })}
+                  placeholder="Titre de la slide (Entrée = nouvelle ligne)" />
+              </Field>
+            )}
+
+            {(slide.layout === "hero" || slide.layout === "end") && (
+              <Field label="Sous-titre">
+                <input className="ed-input" value={slide.sub || ""} onChange={e => onUpdate({ sub: e.target.value })} />
+              </Field>
+            )}
+
+            {slide.layout === "list" && (
+              <Field label="Éléments (un par ligne)">
+                <textarea className="ed-textarea" style={{ minHeight: 110 }} value={itemsText}
+                  onChange={e => onUpdate({ items: e.target.value.split("\n").map(x => x.trim()).filter(Boolean) })} />
+              </Field>
+            )}
+
+            {slide.layout === "quote" && (<>
+              <Field label="Citation">
+                <textarea className="ed-textarea" value={slide.quote || ""} onChange={e => onUpdate({ quote: e.target.value })} />
+              </Field>
+              <Field label="Auteur">
+                <input className="ed-input" value={slide.author || ""} onChange={e => onUpdate({ author: e.target.value })} />
+              </Field>
+            </>)}
+
+            {slide.layout === "stats" && (
+              <Field label="Chiffres (valeur | libellé, un par ligne)">
+                <textarea className="ed-textarea" style={{ minHeight: 90 }} value={statsText}
+                  placeholder={"94% | Satisfaction\n3× | Croissance"}
+                  onChange={e => onUpdate({ stats: e.target.value.split("\n").map(line => {
+                    const p = line.split("|"); return { v: (p[0] || "").trim(), l: (p[1] || "").trim() };
+                  }).filter(s => s.v || s.l) })} />
+              </Field>
+            )}
+
+            <Field label={slide.layout === "image" ? "Photo" : "Photo de fond (optionnelle)"}>
+              <input type="file" accept="image/*" onChange={onPhoto}
+                style={{ width: "100%", fontSize: 13, fontFamily: "'DM Sans',sans-serif", color: C.dark }} />
+              {slide.image && (
+                <div style={{ marginTop: 10 }}>
+                  <img src={slide.image} alt="aperçu" style={{ width: "100%", borderRadius: 7, border: "1px solid #E0DFD9" }} />
+                  <button onClick={() => onUpdate({ image: "" })} style={{ marginTop: 6, background: "none", border: "none", color: "#C03030", fontSize: 13, cursor: "pointer" }}>Retirer la photo</button>
+                </div>
+              )}
+              {slide.layout !== "image" && (
+                <p style={{ fontSize: 11, color: C.muted, marginTop: 6, lineHeight: 1.4 }}>
+                  La photo s'affichera en fond de la slide, derrière le texte.
+                </p>
+              )}
+            </Field>
+
+            {slide.layout === "image" && (
+              <Field label="Légende (optionnelle)">
+                <input className="ed-input" value={slide.caption || ""} onChange={e => onUpdate({ caption: e.target.value })} />
+              </Field>
+            )}
+
+            {slide.layout === "end" && (
+              <Field label="E-mail de contact">
+                <input className="ed-input" value={slide.email || ""} onChange={e => onUpdate({ email: e.target.value })} />
+              </Field>
+            )}
+          </div>
+
+          <div style={{ padding: "16px 22px", borderTop: "1px solid #ECEAE3", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={onAdd} style={{ flex: 1, padding: "10px", background: C.orange, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>+ Nouvelle slide</button>
+              <button onClick={onDelete} disabled={total <= 1} style={{ flex: 1, padding: "10px", background: "#fff", color: total <= 1 ? "#ccc" : "#C03030", border: `1.5px solid ${total <= 1 ? "#eee" : "#F0C9C9"}`, borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: total <= 1 ? "default" : "pointer", fontFamily: "'DM Sans',sans-serif" }}>Supprimer</button>
+            </div>
+            <button onClick={onReset} style={{ width: "100%", padding: "9px", background: "none", color: C.muted, border: "1px solid #E0DFD9", borderRadius: 7, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>Réinitialiser tout le contenu</button>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════ Diaporama ═══════════════ */
+    function Slideshow({ user, onLogout }) {
+      const [slides, setSlides] = useState(loadSlides);
+      const [cur, setCur]   = useState(0);
+      const [vis, setVis]   = useState(true);
+      const [busy, setBusy] = useState(false);
+      const [editing, setEditing] = useState(false);
+
+      const persist = useCallback((next) => {
+        setSlides(next);
+        const ok = saveSlides(next);
+        if (!ok) console.warn("Sauvegarde impossible (stockage plein ou indisponible).");
+      }, []);
+
+      const goTo = useCallback((next) => {
+        if (busy || next < 0 || next >= slides.length) return;
+        setBusy(true); setVis(false);
+        setTimeout(() => { setCur(next); setVis(true); setBusy(false); }, 280);
+      }, [busy, slides.length]);
+
+      useEffect(() => {
+        const h = (e) => {
+          const t = e.target.tagName;
+          if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT") return;
+          if (e.key === "ArrowRight") goTo(cur + 1);
+          if (e.key === "ArrowLeft")  goTo(cur - 1);
+        };
+        window.addEventListener("keydown", h);
+        return () => window.removeEventListener("keydown", h);
+      }, [cur, goTo]);
+
+      const updateSlide = (patch) => persist(slides.map((sl, i) => i === cur ? { ...sl, ...patch } : sl));
+      const addSlide = () => {
+        const ns = { ...LIGHT, layout: "hero", label: "Nouveau", title: "Nouveau titre", sub: "" };
+        const next = [...slides.slice(0, cur + 1), ns, ...slides.slice(cur + 1)];
+        persist(next); setCur(cur + 1);
+      };
+      const deleteSlide = () => {
+        if (slides.length <= 1) return;
+        const next = slides.filter((_, i) => i !== cur);
+        persist(next); setCur(Math.min(cur, next.length - 1));
+      };
+      const resetAll = () => {
+        if (window.confirm("Réinitialiser toutes les slides au contenu d'origine ?")) {
+          persist(DEFAULT_SLIDES); setCur(0);
+        }
+      };
+
+      const slide = slides[cur];
+      const Layout = LAYOUTS[slide.layout] || SlideHero;
+
+      const navBtn = (dir) => {
+        const disabled = dir === -1 ? cur === 0 : cur === slides.length - 1;
+        return (
+          <button onClick={() => goTo(cur + dir)} disabled={disabled} style={{
+            width: 38, height: 38, borderRadius: "50%", border: `1px solid ${slide.fg}28`, background: "none",
+            cursor: disabled ? "default" : "pointer", color: slide.fg, opacity: disabled ? 0.15 : 0.55,
+            fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", transition: "opacity 0.2s",
+          }}>{dir === -1 ? "←" : "→"}</button>
+        );
+      };
+
+      return (
+        <div style={{
+          height: "100vh", background: slide.bg, display: "flex", flexDirection: "column",
+          overflow: "hidden", position: "relative", transition: "background 0.4s ease",
+          paddingRight: editing ? 380 : 0,
+        }}>
+          {slide.image && slide.layout !== "image" && (
+            <div style={{ position: "absolute", inset: 0, zIndex: 0,
+              backgroundImage: `url(${slide.image})`, backgroundSize: "cover", backgroundPosition: "center" }}>
+              <div style={{ position: "absolute", inset: 0, background: hexToRgba(slide.bg, 0.62) }} />
+            </div>
+          )}
+          <div style={{ position: "absolute", top: 0, left: 0, right: editing ? 380 : 0, zIndex: 10,
+            display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 40px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill={C.orange}/></svg>
+              <span style={{ color: slide.fg, fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", opacity: 0.35 }}>PRÉSENTER</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              {user.admin && (
+                <button onClick={() => setEditing(v => !v)} style={{
+                  color: editing ? C.orange : slide.fg, opacity: editing ? 1 : 0.5, fontSize: 13, fontWeight: 600,
+                  background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "opacity 0.2s" }}>
+                  {editing ? "Terminer" : "Modifier"}
+                </button>
+              )}
+              <button onClick={onLogout} style={{ color: slide.fg, opacity: 0.35, fontSize: 13, background: "none", border: "none", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", transition: "opacity 0.2s" }}
+                onMouseOver={e => e.currentTarget.style.opacity = "0.8"} onMouseOut={e => e.currentTarget.style.opacity = "0.35"}>Quitter</button>
+            </div>
+          </div>
+
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 60px",
+            position: "relative", zIndex: 1,
+            opacity: vis ? 1 : 0, transform: vis ? "translateY(0)" : "translateY(12px)", transition: "opacity 0.28s ease, transform 0.28s ease" }}>
+            <Layout s={slide} />
+          </div>
+
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: editing ? 380 : 0, zIndex: 2,
+            display: "flex", justifyContent: "center", alignItems: "center", padding: "22px 40px", gap: 18 }}>
+            {navBtn(-1)}
+            <div style={{ display: "flex", gap: 6, alignItems: "center", maxWidth: "60vw", flexWrap: "wrap", justifyContent: "center" }}>
+              {slides.map((_, i) => (
+                <button key={i} onClick={() => goTo(i)} style={{
+                  width: i === cur ? 22 : 6, height: 6, borderRadius: 3, border: "none", cursor: "pointer", padding: 0,
+                  background: i === cur ? slide.accent : `${slide.fg}1F`, transition: "all 0.3s ease" }} />
+              ))}
+            </div>
+            {navBtn(1)}
+          </div>
+
+          <div style={{ position: "absolute", bottom: 26, right: editing ? 400 : 40, color: slide.fg, opacity: 0.22,
+            fontSize: 11, fontWeight: 500, letterSpacing: "0.08em" }}>
+            {String(cur + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
+          </div>
+
+          {editing && user.admin && (
+            <Editor slide={slide} index={cur} total={slides.length}
+              onUpdate={updateSlide} onAdd={addSlide} onDelete={deleteSlide} onReset={resetAll}
+              onClose={() => setEditing(false)} />
+          )}
+        </div>
+      );
+    }
+
+    /* ═══════════════ Racine ═══════════════ */
+    function App() {
+      const [user, setUser] = useState(null);
+      return user
+        ? <Slideshow user={user} onLogout={() => setUser(null)} />
+        : <LoginPage onLogin={(acc) => setUser(acc)} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
